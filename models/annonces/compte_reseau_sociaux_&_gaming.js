@@ -1,5 +1,5 @@
 class Compte_reseaux_sociaux_et_gaming{
-    constructor(id_compte, nom_compte, type_compte, nombre_abonnees, interaction, date_de_creation, lien){
+    constructor({id_compte, nom_compte, type_compte, nombre_abonnees, interaction, date_de_creation, lien}){
         this.id_compte = id_compte
         this.nom_compte = nom_compte
         this.type_compte = type_compte
@@ -15,3 +15,5 @@ class Compte_reseaux_sociaux_et_gaming{
 
     }
 }
+
+module.exports = Compte_reseaux_sociaux_et_gaming

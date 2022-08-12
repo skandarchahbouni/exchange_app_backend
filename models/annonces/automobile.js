@@ -1,5 +1,5 @@
 class Automobile{
-    constructor(id_automobile, nom_auto, marque, energie, kilometrage, couleur, boite, papier){
+    constructor({id_automobile, nom_auto, marque, energie, kilometrage, couleur, boite, papier}){
         this.id_automobile = id_automobile
         this.nom_auto = nom_auto
         this.marque = marque
@@ -16,3 +16,5 @@ class Automobile{
 
     }
 }
+
+module.exports = Automobile

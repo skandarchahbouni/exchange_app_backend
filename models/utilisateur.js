@@ -1,5 +1,7 @@
+const db = require('../config/db.config')
+
 class Utilisateur {
-    constructor(id_utilisateur, email, mot_de_passe, isAdmin, nom_utilisateur, prenom_utilisateur, numero_de_telephone, wilaya, adresse, facebook, instagram, photo, createdAt, updatedAt) {
+    constructor({id_utilisateur, email, mot_de_passe, isAdmin, nom_utilisateur, prenom_utilisateur, numero_de_telephone, wilaya, adresse, facebook, instagram, photo, createdAt, updatedAt}) {
         this.id_utilisateur = id_utilisateur
         this.email = email
         this.mot_de_passe = mot_de_passe
@@ -15,10 +17,12 @@ class Utilisateur {
         this.createdAt = createdAt
         this.updatedAt = updatedAt
     }
-    async save() {
 
+    async save() {
     }
+
     static async findAll() {
 
     }
 }
+module.exports = Utilisateur

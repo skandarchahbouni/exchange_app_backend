@@ -1,40 +1,161 @@
-const getAllCars = async (req, res) => {
+const db = require("../../config/db.config")
+const category = require("../../helpers/categories")
+const getCurrentDate = require("../../helpers/get_current_date")
+const groupe_response = require("../../helpers/group_response")
+const isEmpty = require("../../helpers/isEmpty")
+const split_announce = require("../../helpers/split_announce")
+
+const getAllCars = async (req, res, next) => {
+
+    const page = Number(req.query.page) || 1
+    const limit = Number(req.query.limit) || 10
+    const skip = (page - 1) * limit
+    // Marques_automobiles
+    const query = `
+        SELECT * FROM Annonces an 
+        INNER JOIN Automobiles au ON an.id_annonce = au.id_automobile
+        INNER JOIN Marques_automobiles m ON m.id_marque = au.marque
+        INNER JOIN Photos p ON p.annonce = an.id_annonce 
+        GROUP BY an.id_annonce 
+        ORDER BY an.updatedAt DESC
+        LIMIT ${limit} OFFSET ${skip}
+    `
     try {
-        res.json("getAllCars")
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response)
     } catch (error) {
-        
+        return next(error)
     }
 }
 
 const getSingleCar = async (req, res) => {
+    const { id } = req.params
+    const query = `
+        SELECT * FROM Annonces an 
+        INNER JOIN Automobiles au ON an.id_annonce = au.id_automobile
+        INNER JOIN Marques_automobiles m ON m.id_marque = au.marque
+        INNER JOIN Photos p ON p.annonce = an.id_annonce 
+        WHERE an.id_annonce = ?
+    `
     try {
-        res.json("getSingleCar")
+        const [response] = await db.execute(query, [id])
+        if (response.length === 0) {
+            return res.status(404).json("car not found")
+        }
+        const car = groupe_response(response)
+        return res.status(200).json(car[0])
     } catch (error) {
-        
+        return next(error)
     }
 }
 
-const addCar = async (req, res) => {
+const addCar = async (req, res, next) => {
+    const { id_utilisateur } = req.user
+    const [announce, car] = split_announce(req.body, category.car)
+    announce.utilisateur = id_utilisateur
+    const current_date = getCurrentDate()
+    announce.createdAt = current_date
+    announce.updatedAt = current_date
+    // TODO 
+    // announce.category = 2 do we have to do this ?
+    delete car.id_automobile
+    delete announce.id_annonce // bcz it's auto increment ?
+
+    const [announce_attributes, announce_values] = [Object.keys(announce), Object.values(announce)]
+    const [car_attributes, car_values] = [Object.keys(car), Object.values(car)]
+
+    const ann_arr = new Array(announce_attributes.length).fill('?')
+    const car_arr = new Array(car_attributes.length).fill('?')
+
+    const query_1 = `
+        INSERT INTO Annonces (${announce_attributes})
+        VALUES(${ann_arr});
+    `
+    const query_2 = `
+        INSERT INTO Automobiles(id_automobile, ${car_attributes}) 
+        VALUES(LAST_INSERT_ID(), ${car_arr});
+    `
+
+    let connection
+
     try {
-        res.json("addCar")
+        connection = await db.getConnection()
+        await connection.beginTransaction()
+        const [{ insertId }] = await connection.execute(query_1, announce_values)
+        await connection.execute(query_2, car_values)
+        await connection.commit()
+        return res.status(201).json({ insertId })
     } catch (error) {
-        
+        connection.rollback()
+        return next(error)
+    } finally {
+        connection.release()
     }
 }
 
-const updateCar = async (req, res) => {
+const updateCar = async (req, res, next) => {
+    const { id } = req.params
+    const [announce, car] = split_announce(req.body, category.car)
+    delete announce.createdAt
+    delete announce.id_annonce
+    delete announce.utilisateur
+    delete car.id_automobile
+
+    if (isEmpty(announce) && isEmpty(car)) {
+        return res.status(200).json("everything up-to-date")
+    }
+
+    const current_date = getCurrentDate()
+    announce.updatedAt = current_date
+
+    let announce_attributes = Object.keys(announce)
+    announce_attributes = announce_attributes.map(i => i = "an." + i + " = ?")
+    const announce_values = Object.values(announce)
+
+    if (isEmpty(car)) {
+        // join not necessary 
+        const query = `
+                UPDATE Annonces an 
+                SET ${announce_attributes}
+                WHERE an.id_annonce = ${id}
+            `
+        try {
+            await db.execute(query, announce_values)
+            return res.status(201).json("everything up-to-date")
+        } catch (error) {
+            return next(error)
+        }
+    }
+
+    let car_attributes = Object.keys(car)
+    car_attributes = car_attributes.map(i => i = "au." + i + " = ?")
+    const car_values = Object.values(car)
+
+    const attributes = announce_attributes.concat(car_attributes)
+    const values = announce_values.concat(car_values)
+
+    const query = `
+        UPDATE Annonces an INNER JOIN Automobiles au ON an.id_annonce = au.id_automobile
+        SET ${attributes}
+        WHERE an.id_annonce = ${id};
+    `
+
     try {
-        res.json("updateCar")
+        await db.execute(query, values)
+        return res.status(200).json("everything up-to-date")
     } catch (error) {
-        
+        return next(error)
     }
 }
 
-const deleteCar = async (req, res) => {
+const deleteCar = async (req, res, next) => {
+    const { id } = req.params
+    const query = "DELETE FROM Annonces WHERE id_annonce = ?" // CASCADE 
     try {
-        res.json("deleteCar")
+        await db.execute(query, [id])
+        return res.status(200).json("car had been deleted succesfully")
     } catch (error) {
-        
+        return next(error)
     }
 }
 

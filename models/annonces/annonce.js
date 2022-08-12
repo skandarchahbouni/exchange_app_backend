@@ -1,5 +1,5 @@
 class Annonce{
-    constructor(id_annonce, utilisateur, numero_de_telephone, wilaya, category, description ,createdAt, updatedAt){
+    constructor({id_annonce, utilisateur, numero_de_telephone, wilaya, category, description ,createdAt, updatedAt}){
         this.id_annonce = id_annonce
         this.utilisateur = utilisateur
         this.numero_de_telephone = numero_de_telephone
@@ -17,3 +17,5 @@ class Annonce{
 
     }
 }
+
+module.exports = Annonce
