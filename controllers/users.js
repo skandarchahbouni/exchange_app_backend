@@ -32,6 +32,8 @@ const getSingleUser = async (req, res, next) => {
     }
 }
 
+
+
 const signup = async (req, res, next) => {
     try {
         const saltRounds = 10
@@ -148,7 +150,6 @@ const updateUser = async (req, res, next) => {
     user = remove_undefined_attributes(user)
     delete user.createdAt
     delete user.id_utilisateur
-    delete user.isAdmin
 
     let attributes = Object.keys(user)
     let values = Object.values(user)
@@ -198,7 +199,7 @@ const logout = async (req, res, next) => {
 const uploadProfilePicture = async (req, res, next) => {
 
     const { file } = req
-    if(!file) return next(CustomAPIError.badRequest('No image provided'))
+    if (!file) return next(CustomAPIError.badRequest('No image provided'))
 
     const { filename } = file
     const { id_utilisateur } = req.user
@@ -216,9 +217,26 @@ const uploadProfilePicture = async (req, res, next) => {
     }
 }
 
+const getProfile = async (req, res, next) => {
+    const { id_utilisateur } = req.user
+    const query = `
+        SELECT * FROM Utilisateurs Where id_utilisateur = ?
+    `
+    try {
+        const [user, _] = await db.execute(query, [id_utilisateur])
+        if (user.length === 0){
+            return res.status(404).json("user not found")
+        }
+        return res.status(200).json(user[0])
+    } catch (error) {
+        return next(error)
+    }
+}
+
 module.exports = {
     getAllUsers,
     getSingleUser,
+    getProfile,
     signup,
     signin,
     updateUser,

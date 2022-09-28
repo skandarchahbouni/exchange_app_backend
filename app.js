@@ -5,6 +5,7 @@ const express = require('express')
 const cors = require('cors')
 const storesRouter = require('./routes/stores')
 const usersRouter = require('./routes/users')
+const announceRouter = require('./routes/announcements/annonces')
 const offersRouter = require('./routes/offers')
 const favouritesRouter = require('./routes/favourites')
 const apartmentsRouter = require('./routes/announcements/apartments')
@@ -33,7 +34,8 @@ const app = express()
 // app.get('/test', (req, res)=> res.json("server is running"))
 
 
-// Important : ki tchanger f db matnsach tbeddel flmodels te3k hna, wtani f lfront end (want to exchange by ..)
+// Important : ki tchanger f db matnsach tbeddel flmodels te3k hna, wtani f lfront end (want to exchange by ..)*
+// tester  get marks 
 const corsConfig = {
     credentials: true,
     origin: true,
@@ -55,6 +57,7 @@ app.use(cookieParser())
 // Routes
 app.use('/api/stores', storesRouter) // => !importnat store rehi blamot de passe 
 app.use('/api/users', usersRouter) // DONE 
+app.use('/api/annonces', announceRouter)
 app.use('/api/offers', offersRouter) // DONE 
 app.use('/api/favourites', favouritesRouter) // DONE 
 app.use('/api/apartments', apartmentsRouter) // DONE 

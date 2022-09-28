@@ -1,9 +1,6 @@
 const getCurrentDate = ()=>{
-    let date = new Date()
-    const yyyy = date.getFullYear()
-    const mm = date.getMonth() + 1
-    const dd = date.getDate()
-    return `${yyyy}-${mm}-${dd}`
+    const current_date =  new Date().toJSON().slice(0, 19).replace('T', ' ')
+    return String(current_date)
 }
 
 module.exports = getCurrentDate

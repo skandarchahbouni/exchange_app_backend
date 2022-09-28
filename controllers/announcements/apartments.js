@@ -11,7 +11,7 @@ const getAllApartments = async (req, res, next) => {
     // apartment => superficie, pieces, specification
 
     const page = Number(req.query.page) || 1
-    const limit = Number(req.query.limit) || 10
+    const limit = Number(req.query.limit) || 1
     const skip = (page - 1) * limit
 
     const [announce, apartment] = split_announce(req.query, category.apartment)
@@ -59,9 +59,10 @@ const getAllApartments = async (req, res, next) => {
 
     if (attributes.length === 0){
         query = `
-            SELECT an.*, ap.*, p.lien_photo FROM Appartements ap 
+            SELECT * FROM Appartements ap 
             INNER JOIN Annonces an ON an.id_annonce = ap.id_appartement
             INNER JOIN Photos p ON p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
             GROUP BY an.id_annonce 
             ORDER BY an.updatedAt DESC
             LIMIT ${limit} OFFSET ${skip}
@@ -69,9 +70,10 @@ const getAllApartments = async (req, res, next) => {
     }else{
         attributes = attributes.join(' AND ')
         query = `
-            SELECT an.*, ap.*, p.lien_photo FROM Appartements ap 
+            SELECT * FROM Appartements ap 
             INNER JOIN Annonces an ON an.id_annonce = ap.id_appartement
             INNER JOIN Photos p ON p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
             WHERE ${attributes}
             GROUP BY an.id_annonce 
             ORDER BY an.updatedAt DESC
@@ -84,8 +86,8 @@ const getAllApartments = async (req, res, next) => {
         // console.log(query, values)
         // console.log(attributes)
         // return res.json("ok")
-        const [apartments, _] = await db.execute(query)
-        return res.status(200).json({ nbHits: apartments.length, apartments })
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response)
     } catch (error) {
         return next(error)
     }
@@ -94,10 +96,11 @@ const getAllApartments = async (req, res, next) => {
 const getSingleApartment = async (req, res, next) => {
     const { id } = req.params
     const query = `
-        SELECT an.*, ap.*, p.lien_photo FROM
+        SELECT * FROM
             Appartements ap INNER JOIN Annonces an 
             ON an.id_annonce = ap.id_appartement
             INNER JOIN Photos p ON p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
             WHERE ap.id_appartement = ?
     `
     try {
@@ -228,10 +231,90 @@ const deleteApartment = async (req, res, next) => {
     }
 }
 
+const getNbApartments = async (req, res, next) => {
+
+    const [announce, apartment] = split_announce(req.query, category.apartment)
+
+    // Announce : add veut_echanger_par
+    let { wilaya, decription } = announce
+    let attributes = []
+
+    if (wilaya) {
+        // wilaya=1,2,3
+        wilaya = wilaya.split(',').map(Number).filter(e => e)
+        if (wilaya.length > 0) attributes.push(`an.wilaya in ( ${wilaya} )`)
+    }
+
+    // superficie, pieces, specification 
+    let { superficie, pieces, specification } = apartment
+
+    if (superficie) {
+        // superficie = min - max
+        superficie = superficie.split('-').map(Number)
+        if (superficie.length === 2) {
+            if (!Number.isNaN(superficie[0])) {
+                attributes.push(`ap.superficie >= ${superficie[0]}`)
+            }
+            if (!Number.isNaN(superficie[1])) {
+                attributes.push(`ap.superficie <= ${superficie[1]}`)
+            }
+        }
+
+    }
+
+    if (pieces) {
+        // pieces = min - max
+        pieces = pieces.split('-').map(Number)
+        if (pieces.length === 2) {
+            if (!Number.isNaN(pieces[0])) {
+                attributes.push(`ap.pieces >= ${pieces[0]}`)
+            }
+            if (!Number.isNaN(pieces[1])) {
+                attributes.push(`ap.pieces <= ${pieces[1]}`)
+            }
+        }
+    }
+
+    let query 
+
+    if (attributes.length === 0){
+        query = `
+            SELECT COUNT(*) nb_apartments FROM (
+                SELECT DISTINCT an.id_annonce FROM Appartements ap 
+                INNER JOIN Annonces an ON an.id_annonce = ap.id_appartement
+                INNER JOIN Photos p ON p.annonce = an.id_annonce
+            ) d
+        `
+    }else{
+        attributes = attributes.join(' AND ')
+        query = `
+            SELECT COUNT(*) nb_apartments FROM (
+                SELECT DISTINCT an.id_annonce FROM Appartements ap 
+                INNER JOIN Annonces an ON an.id_annonce = ap.id_appartement
+                INNER JOIN Photos p ON p.annonce = an.id_annonce
+                WHERE ${attributes}
+            ) d
+        `
+    }
+
+
+    try {
+        // console.log(query, values)
+        // console.log(attributes)
+        // return res.json("ok")
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response[0].nb_apartments)
+    } catch (error) {
+        return next(error)
+    }
+}
+
+
 module.exports = {
     getAllApartments,
     deleteApartment,
     updateApartment,
     addApartment,
-    getSingleApartment
+    getSingleApartment,
+    getNbApartments
 }

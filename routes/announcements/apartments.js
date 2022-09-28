@@ -4,6 +4,7 @@ const authenticationMiddleware = require('../../middlewares/auth')
 const { announce_owner_middleware } = require('../../middlewares/owner')
 
 router.get('/', apartmentController.getAllApartments)
+router.get('/count', apartmentController.getNbApartments)
 router.get('/:id', apartmentController.getSingleApartment)
 
 router.post('/add-apartment', authenticationMiddleware, apartmentController.addApartment)

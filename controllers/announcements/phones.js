@@ -6,16 +6,103 @@ const isEmpty = require("../../helpers/isEmpty")
 const split_announce = require("../../helpers/split_announce")
 
 const getAllPhones = async (req, res, next) => {
-    const query = `
-        SELECT * FROM Annonces an 
-        INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
-        INNER JOIN Marques_automobiles m ON t.marque = m.id_marque
-        INNER JOIN Photos p ON p.annonce = an.id_annonce
+
+    // announce => wilaya, updatedAt, decription  
+    // phones => nom_telephone, marque, copie, Os, memoire, appareil_photo, taille_ecran, ram, couleur, reseau, etat
+
+    const page = Number(req.query.page) || 1
+    const limit = Number(req.query.limit) || 1
+    const skip = (page - 1) * limit
+
+    const [announce, phone] = split_announce(req.query, category.phone)
+
+    // Announce : add veut_echanger_par
+    let { wilaya, decription } = announce
+    let attributes = []
+
+    if (wilaya) {
+        // wilaya=1,2,3
+        wilaya = wilaya.split(',').map(Number).filter(e => e)
+        if (wilaya.length > 0) attributes.push(`an.wilaya in ( ${wilaya} )`)
+    }
+
+    // phone => nom_telephone, marque, copie, Os, memoire, appareil_photo, taille_ecran, ram, couleur, reseau, etat
+
+    if (phone.nom_telephone) {
+        const { nom_telephone } = phone
+        attributes.push(`t.nom_telephone='${nom_telephone}'`)
+    }
+    if (phone.marque) {
+        let { marque } = phone
+        attributes.push(`m.nom_marque='${marque}'`)
+    }
+    if (phone.copie !== undefined) {
+        const { copie } = phone
+        attributes.push(`t.copie=${copie}`)
+    }
+    if (phone.Os) {
+        const { Os } = phone
+        attributes.push(`t.Os='${Os}'`)
+    }
+    if (phone.memoire) {
+        const memoire = phone.memoire.split(',').map(Number).filter(e => e)
+        attributes.push(`t.memoire in (${memoire})`)
+    }
+    if (phone.appareil_photo) {
+        const appareil_photo = phone.appareil_photo.split(',').map(Number).filter(e => e)
+        attributes.push(`t.appareil_photo in (${appareil_photo})`)
+    }
+    if (phone.taille_ecran) {
+        const taille_ecran = phone.taille_ecran.split(',').map(Number).filter(e => e)
+        attributes.push(`t.taille_ecran in (${taille_ecran})`)
+    }
+    if (phone.ram) {
+        const ram = phone.ram.split(',').map(Number).filter(e => e)
+        attributes.push(`t.ram in (${ram})`)
+    }
+    if (phone.couleur) {
+        const couleur = phone.couleur.split(',').map(c => "'" + c.trim() + "'")
+        attributes.push(`t.couleur in (${couleur})`)
+    }
+    if (phone.reseau) {
+        const reseau = phone.reseau.split(',').map(Number).filter(e => e)
+        attributes.push(`t.reseau in (${reseau})`)
+    }
+    if (phone.etat) {
+        const etat = phone.etat.split(',').map(e => "'" + String(e).trim() + "'")
+        attributes.push(`t.etat in (${etat})`)
+        console.log(etat)
+    }
+    let query
+    if (attributes.length === 0) {
+        query = `
+            SELECT * FROM Annonces an 
+            INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
+            INNER JOIN Marques_telephones m ON t.marque = m.id_marque
+            INNER JOIN Photos p ON p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON w.id_wilaya = an.wilaya 
+            GROUP BY an.id_annonce 
+            ORDER BY an.updatedAt DESC
+            LIMIT ${limit} OFFSET ${skip}
     `
+    } else {
+        attributes = attributes.join(' AND ')
+        query = `
+            SELECT * FROM Annonces an 
+            INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
+            INNER JOIN Marques_telephones m ON t.marque = m.id_marque
+            INNER JOIN Photos p ON p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON w.id_wilaya = an.wilaya 
+            WHERE ${attributes}
+            GROUP BY an.id_annonce 
+            ORDER BY an.updatedAt DESC
+            LIMIT ${limit} OFFSET ${skip}
+`
+    }
+
     try {
         const [response, _] = await db.execute(query)
-        const phones = groupe_response(response)
-        return res.status(200).json(phones)
+        return res.status(200).json(response)
     } catch (error) {
         return next(error)
     }
@@ -26,8 +113,9 @@ const getSinglePhone = async (req, res, next) => {
     const query = `
         SELECT * FROM Annonces an 
         INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
-        INNER JOIN Marques_automobiles m ON t.marque = m.id_marque
+        INNER JOIN Marques_telephones m ON t.marque = m.id_marque
         INNER JOIN Photos p ON p.annonce = an.id_annonce
+        INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
         WHERE an.id_annonce = ?
     `
     try {
@@ -163,10 +251,130 @@ const deletePhone = async (req, res, next) => {
     }
 }
 
+const getPhonesMarks = async (req, res, next) => {
+    const query = `
+        SELECT * FROM Marques_telephones 
+    `
+    try {
+        const [marks, _] = await db.execute(query)
+        res.status(200).json(marks)
+    } catch (error) {
+        return next(error)
+    }
+}
+
+
+const getNbPhones = async (req, res, next) => {
+
+    const [announce, phone] = split_announce(req.query, category.phone)
+
+    // Announce : add veut_echanger_par
+    let { wilaya, decription } = announce
+    let attributes = []
+
+    if (wilaya) {
+        // wilaya=1,2,3
+        wilaya = wilaya.split(',').map(Number).filter(e => e)
+        if (wilaya.length > 0) attributes.push(`an.wilaya in ( ${wilaya} )`)
+    }
+
+    // phone => nom_telephone, marque, copie, Os, memoire, appareil_photo, taille_ecran, ram, couleur, reseau, etat
+
+    if (phone.nom_telephone) {
+        const { nom_telephone } = phone
+        attributes.push(`t.nom_telephone='${nom_telephone}'`)
+    }
+    if (phone.marque) {
+        let { marque } = phone
+        attributes.push(`m.nom_marque='${marque}'`)
+    }
+
+    if (phone.copie !== undefined) {
+        const { copie } = phone
+        attributes.push(`t.copie=${copie}`)
+    }
+    if (phone.Os) {
+        const { Os } = phone
+        attributes.push(`t.Os='${Os}'`)
+    }
+    if (phone.memoire) {
+        const memoire = phone.memoire.split(',').map(Number).filter(e => e)
+        attributes.push(`t.memoire in (${memoire})`)
+    }
+    if (phone.appareil_photo) {
+        const appareil_photo = phone.appareil_photo.split(',').map(Number).filter(e => e)
+        attributes.push(`t.memoire in (${appareil_photo})`)
+    }
+    if (phone.taille_ecran) {
+        const taille_ecran = phone.taille_ecran.split(',').map(Number).filter(e => e)
+        attributes.push(`t.taille_ecran in (${taille_ecran})`)
+    }
+    if (phone.ram) {
+        const ram = phone.ram.split(',').map(Number).filter(e => e)
+        attributes.push(`t.ram in (${ram})`)
+    }
+    if (phone.couleur) {
+        const couleur = phone.couleur.split(',').map(c => "'" + c.trim() + "'")
+        attributes.push(`t.couleur in (${couleur})`)
+    }
+    if (phone.reseau) {
+        const reseau = phone.reseau.split(',').map(Number).filter(e => e)
+        attributes.push(`t.reseau in (${reseau})`)
+    }
+    if (phone.etat) {
+        const etat = phone.etat.split(',').map(e => "'" + String(e).trim() + "'")
+        attributes.push(`t.etat in (${etat})`)
+        console.log(etat)
+    }
+    let query
+    if (attributes.length === 0) {
+        query = `
+        SELECT COUNT(*) nb_phones FROM(
+            SELECT DISTINCT an.id_annonce FROM Annonces an 
+            INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
+            INNER JOIN Marques_telephones m ON t.marque = m.id_marque
+            INNER JOIN Photos p ON p.annonce = an.id_annonce
+            ) d
+    `
+    } else {
+        attributes = attributes.join(' AND ')
+        query = `
+        SELECT COUNT(*) nb_phones FROM (    
+            SELECT DISTINCT an.id_annonce FROM Annonces an 
+            INNER JOIN Telephones t ON an.id_annonce = t.id_telephone
+            INNER JOIN Marques_telephones m ON t.marque = m.id_marque
+            INNER JOIN Photos p ON p.annonce = an.id_annonce
+            WHERE ${attributes}
+            ) d
+    `
+    }
+
+    try {
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response[0].nb_phones)
+    } catch (error) {
+        return next(error)
+    }
+}
+
+
+const getPhonesNames = async (req, res, next)=>{
+    const query = "SELECT DISTINCT nom_telephone FROM Telephones"
+    try {
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response)
+    } catch (error) {
+        return next(error)   
+    }
+}
+
 module.exports = {
     getAllPhones,
     deletePhone,
     updatePhone,
     addPhone,
-    getSinglePhone
+    getSinglePhone,
+    getPhonesMarks,
+    getPhonesNames,
+    getNbPhones
 }

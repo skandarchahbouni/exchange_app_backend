@@ -6,17 +6,76 @@ const isEmpty = require("../../helpers/isEmpty")
 const split_announce = require("../../helpers/split_announce")
 
 const getAllSocialAccounts = async (req, res, next) => {
+    // announce => wilaya, updatedAt, decription  
+    // comptes =>  type_compte, nombre_abonnees, interaction
 
-    const query = `
-        SELECT * FROM Annonces an 
-        INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
-        INNER JOIN Photos p on p.annonce = an.id_annonce 
-    `
+    const page = Number(req.query.page) || 1
+    const limit = Number(req.query.limit) || 1
+    const skip = (page - 1) * limit
+
+    const [announce, account] = split_announce(req.query, category.accounts)
+
+
+    // Announce : add veut_echanger_par
+    let { wilaya, decription } = announce
+    let attributes = []
+
+    if (wilaya) {
+        // wilaya=1,2,3
+        wilaya = wilaya.split(',').map(Number).filter(e => e)
+        if (wilaya.length > 0) attributes.push(`an.wilaya in ( ${wilaya} )`)
+    }
+
+    // comptes =>  type_compte, nombre_abonnees, interaction
+    let { type_compte, nombre_abonnees, interaction } = account
+    if (type_compte) {
+        type_compte = type_compte.split(',').map(e => "'" + e.trim() + "'")
+        attributes.push(`type_compte in (${type_compte})`)
+    }
+    if (nombre_abonnees) {
+        nombre_abonnees = nombre_abonnees.split('-').map(Number)
+        if (nombre_abonnees.length === 2) {
+            if (!Number.isNaN(nombre_abonnees[0])) {
+                attributes.push(`c.nombre_abonnees >= ${nombre_abonnees[0]}`)
+            }
+            if (!Number.isNaN(nombre_abonnees[1])) {
+                attributes.push(`c.nombre_abonnees <= ${nombre_abonnees[1]}`)
+            }
+        }
+    }
+    if (interaction) {
+        interaction = interaction.split(',').map(e => "'" + e.trim() + "'")
+        attributes.push(`c.interaction in (${interaction})`)
+    }
+
+    let query
+    if (attributes.length === 0) {
+        query = `
+            SELECT * FROM Annonces an 
+            INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
+            INNER JOIN Photos p on p.annonce = an.id_annonce 
+            INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
+            GROUP BY an.id_annonce 
+            ORDER BY an.updatedAt DESC
+            LIMIT ${limit} OFFSET ${skip}
+        `
+    } else {
+        attributes = attributes.join(' AND ')
+        query = `
+            SELECT * FROM Annonces an 
+            INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
+            INNER JOIN Photos p on p.annonce = an.id_annonce
+            INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
+            WHERE ${attributes}
+            GROUP BY an.id_annonce 
+            ORDER BY an.updatedAt DESC
+            LIMIT ${limit} OFFSET ${skip}
+        `
+    }
 
     try {
         const [response, _] = await db.execute(query)
-        const accounts = groupe_response(response)
-        return res.status(200).json(accounts)
+        return res.status(200).json(response)
     } catch (error) {
         return next(error)
     }
@@ -29,6 +88,7 @@ const getSingleSocialAccount = async (req, res, next) => {
         SELECT * FROM Annonces an 
         INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
         INNER JOIN Photos p on p.annonce = an.id_annonce 
+        INNER JOIN Wilaya w ON an.wilaya = w.id_wilaya
         WHERE an.id_annonce = ?
     `
     try {
@@ -157,10 +217,78 @@ const deleteSocialAccount = async (req, res, next) => {
     }
 }
 
+
+const getNbAccounts = async (req, res, next) => {
+
+    const [announce, account] = split_announce(req.query, category.accounts)
+
+
+    // Announce : add veut_echanger_par
+    let { wilaya, decription } = announce
+    let attributes = []
+
+    if (wilaya) {
+        // wilaya=1,2,3
+        wilaya = wilaya.split(',').map(Number).filter(e => e)
+        if (wilaya.length > 0) attributes.push(`an.wilaya in ( ${wilaya} )`)
+    }
+
+    // comptes =>  type_compte, nombre_abonnees, interaction
+    let { type_compte, nombre_abonnees, interaction } = account
+    if (type_compte) {
+        type_compte = type_compte.split(',').map(e => "'" + e.trim() + "'")
+        attributes.push(`type_compte in (${type_compte})`)
+    }
+    if (nombre_abonnees) {
+        nombre_abonnees = nombre_abonnees.split('-').map(Number)
+        if (nombre_abonnees.length === 2) {
+            if (!Number.isNaN(nombre_abonnees[0])) {
+                attributes.push(`c.nombre_abonnees >= ${nombre_abonnees[0]}`)
+            }
+            if (!Number.isNaN(nombre_abonnees[1])) {
+                attributes.push(`c.nombre_abonnees <= ${nombre_abonnees[1]}`)
+            }
+        }
+    }
+    if (interaction) {
+        interaction = interaction.split(',').map(e => "'" + e.trim() + "'")
+        attributes.push(`c.interaction in (${interaction})`)
+    }
+
+    let query
+    if (attributes.length === 0) {
+        query = `
+            SELECT COUNT(*) nb_accounts FROM (
+                SELECT DISTINCT an.id_annonce FROM Annonces an 
+                INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
+                INNER JOIN Photos p on p.annonce = an.id_annonce 
+            ) d
+        `
+    } else {
+        attributes = attributes.join(' AND ')
+        query = `
+            SELECT COUNT(*) nb_accounts FROM (
+                SELECT DISTINCT an.id_annonce FROM Annonces an 
+                INNER JOIN Comptes_reseau_sociaux_et_gaming c ON an.id_annonce = c.id_compte
+                INNER JOIN Photos p on p.annonce = an.id_annonce 
+                WHERE ${attributes}
+            ) d
+        `
+    }
+
+    try {
+        const [response, _] = await db.execute(query)
+        return res.status(200).json(response[0].nb_accounts)
+    } catch (error) {
+        return next(error)
+    }
+}
+
 module.exports = {
     getAllSocialAccounts,
     deleteSocialAccount,
     updateSocialAccount,
     addSocialAccount,
-    getSingleSocialAccount
+    getSingleSocialAccount,
+    getNbAccounts
 }

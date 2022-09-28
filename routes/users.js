@@ -8,7 +8,11 @@ const upload = require('../middlewares/upload_files')
 router.get('/', userController.getAllUsers)
 
 // -- for user 
+router.get('/profile', authenticationMiddleware, userController.getProfile)
+
+// -- for admin  
 router.get('/:id', userController.getSingleUser)
+
 
 router.post('/auth/signup', userController.signup)
 router.post('/auth/signin', userController.signin)

@@ -4,6 +4,7 @@ const authenticationMiddleware = require('../../middlewares/auth')
 const { announce_owner_middleware } = require('../../middlewares/owner')
 
 router.get('/', socialAccountsController.getAllSocialAccounts)
+router.get('/count', socialAccountsController.getNbAccounts)
 router.get('/:id', socialAccountsController.getSingleSocialAccount)
 
 router.post('/add-Account', authenticationMiddleware, socialAccountsController.addSocialAccount)
